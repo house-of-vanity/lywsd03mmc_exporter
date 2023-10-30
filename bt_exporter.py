@@ -1,29 +1,25 @@
 """Xiaomi Mi Temperature and Humidity Monitor 2 (LYWSD03MMC) prom exporter"""
 
-import os
 import time
-import requests
-import binascii
 import argparse
-from time import sleep
 from prometheus_client import start_http_server, Gauge, Enum
 from bluepy import btle
 
 
 class XiaoMiTemp(btle.DefaultDelegate):
-    def __init__(self,mac,location, temp, humid, batt):
+    def __init__(self, mac, location, temp, humid, batt):
         btle.DefaultDelegate.__init__(self)
-        self.mac=mac
-        self.loc=location
+        self.mac = mac
+        self.loc = location
         self.temp = temp
         self.humid = humid
         self.batt = batt
 
     def handleNotification(self, cHandle, data):
-        databytes=bytearray(data)
-        self.temp.labels(self.mac, self.loc).set(int.from_bytes(databytes[0:2],"little")/100)
-        self.humid.labels(self.mac, self.loc).set(int.from_bytes(databytes[2:3],"little"))
-        self.batt.labels(self.mac, self.loc).set(int.from_bytes(databytes[3:5],"little")/1000)
+        databytes = bytearray(data)
+        self.temp.labels(self.mac, self.loc).set(int.from_bytes(databytes[0:2], "little") / 100)
+        self.humid.labels(self.mac, self.loc).set(int.from_bytes(databytes[2:3], "little"))
+        self.batt.labels(self.mac, self.loc).set(int.from_bytes(databytes[3:5], "little") / 1000)
 
 
 class AppMetrics:
@@ -44,8 +40,8 @@ class AppMetrics:
 
     def fetch(self):
         for mac, location in self.devices:
-            p = btle.Peripheral( )
-            p.setDelegate( XiaoMiTemp(mac, location, self.temperature, self.humidity, self.battery) )
+            p = btle.Peripheral()
+            p.setDelegate(XiaoMiTemp(mac, location, self.temperature, self.humidity, self.battery))
 
             # BLE performs very poorly, constant errors are not uncommon
             for attempt in range(10):
@@ -58,24 +54,25 @@ class AppMetrics:
                 finally:
                     p.disconnect()
 
+
 def main():
     parser = argparse.ArgumentParser(
-            description="Xiaomi Mi Temperature and Humidity Monitor 2 (LYWSD03MMC) prom exporter")
+        description="Xiaomi Mi Temperature and Humidity Monitor 2 (LYWSD03MMC) prom exporter")
     parser.add_argument(
-            '--device',
-            action='append',
-            required=True,
-            help="BLE Device in 'MAC;location' format")
+        '--device',
+        action='append',
+        required=True,
+        help="BLE Device in 'MAC;location' format")
     parser.add_argument(
-            '--polling-interval',
-            default=180,
-            type=int,
-            help='Polling interval in seconds')
+        '--polling-interval',
+        default=180,
+        type=int,
+        help='Polling interval in seconds')
     parser.add_argument(
-            '--port',
-            default=9877,
-            type=int,
-            help='Exporter port')
+        '--port',
+        default=9877,
+        type=int,
+        help='Exporter port')
 
     args = parser.parse_args()
 
@@ -89,6 +86,7 @@ def main():
     )
     start_http_server(exporter_port)
     app_metrics.run_metrics_loop()
+
 
 if __name__ == "__main__":
     main()
