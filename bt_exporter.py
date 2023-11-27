@@ -2,9 +2,16 @@
 
 import time
 import argparse
+import logging
 from prometheus_client import start_http_server, Gauge, Enum
 from bluepy import btle
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%d-%m-%Y %H:%M:%S')
+
+log = logging.getLogger('LYWSD03MMC-exporter')
 
 class XiaoMiTemp(btle.DefaultDelegate):
     def __init__(self, mac, location, temp, humid, batt):
@@ -26,6 +33,7 @@ class AppMetrics:
     def __init__(self, devices, polling_interval_seconds=180):
         self.polling_interval_seconds = polling_interval_seconds
         self.devices = devices
+        self.fetch_count = int(0)
         # Metrics scheme
         self.temperature = Gauge("lywsd03mmc_temp", "Current temperature", ['mac', 'location'])
         self.humidity = Gauge("lywsd03mmc_humid", "Current humidity", ['mac', 'location'])
@@ -39,7 +47,10 @@ class AppMetrics:
             time.sleep(self.polling_interval_seconds)
 
     def fetch(self):
+        self.fetch_count += 1
+        log.info(f"Fetch loop started. Iteration {self.fetch_count}")
         for mac, location in self.devices:
+            log.info(f"Fetching '{mac}' ({location})")
             p = btle.Peripheral()
             p.setDelegate(XiaoMiTemp(mac, location, self.temperature, self.humidity, self.battery))
 
@@ -48,8 +59,10 @@ class AppMetrics:
                 try:
                     p.connect(mac)
                     p.waitForNotifications(15.0)
+                    log.info(f"Fetched '{mac}' ({location}). Attempt {attempt}.")
                     break
                 except Exception as e:
+                    log.info(f"Failed to fetch '{mac}' ({location}). Attempt {attempt}.")
                     pass
                 finally:
                     p.disconnect()
